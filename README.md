@@ -124,4 +124,5 @@ We welcome additions to the "living" dataset and new strategy ideas.
   - Confirm it runs end-to-end: `stimloss run -c <config>` should produce figures/tables without warnings.
   - In your PR description, briefly explain the rationale of the strategy.
 
+
 General PR checklist: describe the source/assumptions, keep files small (or point to external open data if too large), and ensure commands above succeed before opening the PR.
