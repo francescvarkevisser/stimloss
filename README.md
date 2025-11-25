@@ -5,6 +5,8 @@ Stimloss is a framework to analyse the power losses and power efficiency in mult
 The framework is described in this preprint: https://arxiv.org/abs/2501.08025.
 
 ## Install (Windows)
+Note: run these commands from the project root.
+
 ```Command Prompt
 python -m venv .venv
 .\.venv\Scripts\activate
@@ -22,6 +24,7 @@ python -m pip install -e .
 # dev tools (optional)
 python -m pip install -e .[dev]
 ```
+
 ## Run example
 `stimloss run -c .\examples\basic_analysis\demo_config.yaml`
 figures and dataframes are saved in ./examples/basic_analysis/output
