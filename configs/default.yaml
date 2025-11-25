@@ -1,0 +1,22 @@
+# Default config template to help users author their own runs.
+version: 1
+
+project:
+  name: "Powerloss Project"
+  output_dir: "reports"
+
+# Data section lists datasets by id so analyses can reference them.
+data:
+  datasets:
+    # - id: "combined"
+    #   path: "data/combined_df.parquet"
+    #   kind: "combined"     # combined | measured | sim | sim_pl
+    #   format: "parquet"    # parquet | csv
+  subjects: []
+
+# Analyses declare which datasets to use and what to compute.
+analyses: []
+
+# Optional generation tasks (e.g., synthesize from literature table).
+generation:
+  tasks: []

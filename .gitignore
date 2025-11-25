@@ -1,0 +1,16 @@
+
+__pycache__/
+*.pyc
+.venv/
+.env/
+dist/
+build/
+site/
+figs/
+reports/
+output/
+data/*.parquet
+examples/recreate_paper_figures/*
+examples/compare_measured_results/*
+wheelcart/
+wheelhouse/

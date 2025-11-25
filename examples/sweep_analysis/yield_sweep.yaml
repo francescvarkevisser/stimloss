@@ -1,0 +1,64 @@
+# Demo: map literature bundle to measured ASIC results and simulations, then evaluate strategies
+version: 1
+
+project:
+  name: "Strategies Test"
+  output_dir: "examples/sweep_analysis/output"
+
+data:
+  # Define all datasets that analyses can reference by id.
+  datasets:
+    - id: "combined"
+      path: "data/combined_df_20250316_1835.parquet"
+      kind: "combined"
+      format: "parquet"
+
+analyses:
+  - id: "loss_eval"
+    type: "strategies"
+    inputs:
+      data: "combined" 
+    params:
+      # target: "V1"
+      show_progress: true
+      group_cols: ['Target']
+      default_n_samples: 200    # lower to keep resampling quick
+      n_repeats: 50            # lower to avoid long runs
+      strategies:
+        - id: "stepped"
+          label: "Stepped (8 levels, uniform)"
+          type: "stepped"
+          nsteps: 3
+          dist: "uniform"
+          Vheadroom: [0.5, 1]
+          channel_yield: [0.5, 0.9]
+    outputs:
+      figures:
+        - kind: "boxplot"
+          dataframe: "mean"
+          x: "Vheadroom"
+          y: "efficiency"
+          path: "test.png"
+        - kind: "boxplot"
+          dataframe: "mean"
+          x: "channel_yield"
+          y: "efficiency"
+          hue: "Vheadroom"
+          path: "yield_efficiency.png"
+        - kind: "boxplot"
+          dataframe: "mean"
+          x: "channel_yield"
+          y: "efficiency"
+          hue: ["Vheadroom", "Target"]
+          path: "yield_efficiency_huetest.png"
+      tables:
+        - kind: "final"
+          dataframe: "final"
+          path: "final.parquet"
+        - kind: "resampled"
+          dataframe: "resampled"
+          path: "resampled.parquet"
+        - kind: "mean"
+          dataframe: "mean"
+          path: "mean.parquet"
+      print: []

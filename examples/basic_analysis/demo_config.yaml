@@ -1,0 +1,78 @@
+# Demo: map literature bundle to measured ASIC results and simulations, then evaluate strategies
+version: 1
+
+project:
+  name: "Strategies Test"
+  output_dir: "./examples/basic_analysis/output"
+
+data:
+  # Define all datasets that analyses can reference by id.
+  datasets:
+    - id: "combined"
+      path: "data/combined_df_20250316_1835.parquet"
+      kind: "combined"
+      format: "parquet"
+
+analyses:
+  - id: "loss_eval"
+    type: "strategies"
+    inputs:
+      data: "combined" 
+    params:
+      show_progress: true # set to false to suppress progress prints
+      group_cols: ["Target"]
+      default_n_samples: 200    # lower to keep resampling quick
+      n_repeats: 50            # lower to avoid long runs
+      Vheadroom: 0.25
+      strategies:
+        - id: "fixed"
+          label: "Fixed Supply"
+          type: "fixed"
+        - id: "stepped_uniform_4"
+          label: "4 steps"
+          type: "stepped"
+          nsteps: 4
+          dist: "uniform"
+        - id: "stepped_uniform_8"
+          label: "8 steps"
+          type: "stepped"
+          nsteps: 8
+          dist: "uniform"
+        - id: "global"
+          label: "Global"
+          type: "global"
+    outputs:
+      figures:
+        - kind: "boxplot"
+          dataframe: "mean"
+          x: "Target"
+          y: "efficiency"
+          ylabel: "Efficiency [%]"
+          yformat: "%"
+          hue: "label"
+          path: "Efficiency_compare.png"
+        - kind: "boxplot"
+          dataframe: "mean"
+          x: "Target"
+          y: "ploss"
+          ylabel: "Ploss/channel"
+          yscale: "log"
+          hue: "label"
+          path: "Ploss_compare.png"
+        - kind: "boxplot"
+          dataframe: "mean"
+          x: "label"
+          y: "efficiency"
+          yformat: "%"
+          ylabel: "Efficiency [%]"
+          hue: "Target"
+          include_strategies: ['fixed', 'global']
+          path: "Efficiency_fixed_vs_global.png"
+      tables:
+        - kind: "final"
+          dataframe: "final"
+          path: "final.parquet"
+        - kind: "mean"
+          dataframe: "mean"
+          path: "mean.parquet"
+      print: []
