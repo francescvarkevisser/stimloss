@@ -4,14 +4,6 @@ Stimloss is a framework to analyse the power losses and power efficiency in mult
 
 The framework is described in this preprint: https://arxiv.org/abs/2501.08025.
 
-## Workflow
-1. **Start from a config**: copy `configs/default.yaml` or an example (e.g. `examples/basic_analysis/demo_config.yaml`, `examples/sweep_analysis/yield_sweep.yaml`) into your own file.
-2. **Register datasets**: add `datasets` entries (kind = `combined`, `measured`, `sim`, or `sim_pl`) that point to your Parquet/CSV files. You can edit YAML directly or use `stimloss add-dataset -c <config> --id ... --path ... --kind ...`.
-3. **(Optional) Synthesize data**: either run generation tasks declared in your config (`stimloss generate -c <config>`) or build from a literature table (`stimloss generate --from-table data/LiteratureOverview.xlsx --sheet DataSets --n-samples 10000 --output-dir data/bundles`).
-4. **Validate the config**: `stimloss validate -c <config>` checks paths, columns, and analysis references.
-5. **Run analyses**: `stimloss run -c <config>` executes the analyses in the file (or a single one with `--analysis <id>`), writing figures/tables under `project.output_dir`. Use `strategies` for fixed/stepped/global evaluations or `strategies_sweep` to sweep a parameter.
-6. **Inspect results**: figures are saved as declared in YAML; tables can be written to CSV/Parquet. Use `stimloss list-ids --path <file> --column id` to quickly inspect unique ids.
-
 ## Install (Windows)
 ```Command Prompt
 python -m venv .venv
@@ -59,17 +51,19 @@ scripts/
 - **YAML config**: run end-to-end via configs; e.g. `stimloss run -c examples/mapping_measurements.yaml` (mapping-only, outputs `mapped` CSV) or `stimloss generate -c configs/literature.yaml`. Start new configs from `configs/default.yaml`.
 - **Python scripts**: execute demos or build custom flows; e.g. `python examples/demo_recreate_paper_figures.py`, `python examples/demo_vheadroom_compare.py`, or import APIs directly (`from stimloss.strategies import calculate_ploss`).
 
+## Workflow
+1. **Start from a config**: copy `configs/default.yaml` or an example (e.g. `examples/basic_analysis/demo_config.yaml`, `examples/sweep_analysis/yield_sweep.yaml`) into your own file.
+2. **Register datasets**: add `datasets` entries (kind = `combined`, `measured`, `sim`, or `sim_pl`) that point to your Parquet/CSV files. You can edit YAML directly or use `stimloss add-dataset -c <config> --id ... --path ... --kind ...`.
+3. **(Optional) Synthesize data**: either run generation tasks declared in your config (`stimloss generate -c <config>`) or build from a literature table (`stimloss generate --from-table data/LiteratureOverview.xlsx --sheet DataSets --n-samples 10000 --output-dir data/bundles`).
+4. **Validate the config**: `stimloss validate -c <config>` checks paths, columns, and analysis references.
+5. **Run analyses**: `stimloss run -c <config>` executes the analyses in the file (or a single one with `--analysis <id>`), writing figures/tables under `project.output_dir`. Use `strategies` for fixed/stepped/global evaluations or `strategies_sweep` to sweep a parameter.
+6. **Inspect results**: figures are saved as declared in YAML; tables can be written to CSV/Parquet. Use `stimloss list-ids --path <file> --column id` to quickly inspect unique ids.
+
 ## Strategy model (Fixed, Stepped, Global)
 Strategies are config-driven and evaluated by `build_long_from_strategies` (`src/stimloss/strategies.py`). Supported types:
 - `fixed`: single rail (`nsteps=1`). Params: `Vheadroom`, optional `Vmax`, or per-source percentile via `channel_yield` + `Vsub=True`.
 - `stepped`: multi-rail. Params: `nsteps` , `dist` (`uniform`/`exp`/`invexp`), `alpha`, `Vheadroom`, optional `Vmax`, or `channel_yield` + `Vsub=True` for per-source maxima.
 - `global`: uses aggregated `Efficiency_global` / `Ploss_global` from the sampling stage (resample-by-group).
-
-Example flow (`examples/mapping_measurements.yaml`):
-1) Mapping analysis (`type: mapping`) loads base/join datasets and writes a slim `mapped.csv` (registered as dataset `mapped`).
-2) Strategies analysis (`type: strategies`) samples per target (`default_n_samples`, `n_repeats` configurable), writes `summary.csv` (iteration means) and `long.csv` for plotting.
-3) Only listed strategies are computed—no hardcoded `step4/step8`, and legacy measured/sim columns are not treated as strategies.
-4) To sweep a parameter (e.g., `channel_yield`, `Vheadroom`), use `type: strategies_sweep` and provide `sweep_param` + `values`.
 
 Custom strategies: add a helper/column in `src/stimloss/strategies.py` and reference it via a column or pandas expression in your YAML `strategies` block (type-less entries are treated as expr/column).
 
