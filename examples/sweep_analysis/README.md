@@ -1,6 +1,6 @@
-# Yield Sweep Example
+# Parameter Sweep Example
 
-Sweep channel yield values via the config-driven workflow and plot efficiency/loss vs yield.
+Sweep parameter values via the config-driven workflow and plot sweep comparisons.
 
 ## What this example does
 - Sweeps the yield and Vheadroom settings by parsing it as a list of values in the analysis definition.

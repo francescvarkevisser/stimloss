@@ -2,7 +2,7 @@
 version: 1
 
 project:
-  name: "Strategies Test"
+  name: "Parameter Sweep"
   output_dir: "examples/sweep_analysis/output"
 
 data:
