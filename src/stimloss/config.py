@@ -43,6 +43,7 @@ class GenerationTask:
     type: str               # e.g. "from_meta" | "from_literature"
     meta_glob: Optional[str] = None
     output_dir: str = "data/bundles"
+    output_path: Optional[str] = None
     path: Optional[str] = None       # for from_literature
     sheet: Optional[str] = None
     n_samples: int = 10000

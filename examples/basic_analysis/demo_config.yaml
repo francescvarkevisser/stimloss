@@ -9,7 +9,7 @@ data:
   # Define all datasets that analyses can reference by id.
   datasets:
     - id: "combined"
-      path: "data/combined_df_20250316_1835.parquet"
+      path: "data/combined_df_generated.parquet"
       kind: "combined"
       format: "parquet"
 
@@ -76,3 +76,13 @@ analyses:
           dataframe: "mean"
           path: "mean.parquet"
       print: []
+
+generation:
+  tasks:
+    - id: "from_literature"
+      type: "from_literature"
+      path: "data/LiteratureOverview.xlsx"
+      sheet: "DataSets"
+      n_samples: 10000
+      output_dir: "data"
+      output_path: "data/combined_df_generated.parquet"

@@ -4,9 +4,7 @@ project:
   name: "Literature Synthesis"
   output_dir: "reports"
 
-data:
-  datasets: []
-  subjects: []
+data: []
 
 analyses: []
 
@@ -14,7 +12,7 @@ generation:
   tasks:
     - id: "from_literature"
       type: "from_literature"
-      path: "data/raw/LiteratureOverview.xlsx"
+      path: "data/LiteratureOverview.xlsx"
       sheet: "DataSets"
       n_samples: 10000
-      output_dir: "data/bundles"
+      output_dir: "data"

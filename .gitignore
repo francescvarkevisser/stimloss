@@ -14,3 +14,4 @@ examples/recreate_paper_figures/*
 examples/compare_measured_results/*
 wheelcart/
 wheelhouse/
+examples/sweep_analysis/*.py

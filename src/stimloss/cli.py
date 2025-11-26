@@ -135,6 +135,42 @@ def run(
         typer.echo("No analyses matched; nothing was run.")
 
 
+@app.command("generate-and-run")
+def generate_and_run(
+    config: Path = typer.Option(..., "-c", "--config", help="Config YAML"),
+    task: Optional[str] = typer.Option(None, "--task", help="Only run a specific generation task id"),
+    analysis: Optional[str] = typer.Option(None, "--analysis", help="Only run a specific analysis id"),
+):
+    """
+    Convenience: run generation tasks (from config) and then run analyses.
+    """
+    cfg = load_config(str(config))
+    # Run generation first
+    if cfg.generation and cfg.generation.tasks:
+        ran_gen = False
+        for t in cfg.generation.tasks:
+            if task and t.id != task:
+                continue
+            outs = run_generation_task(t)
+            typer.echo(f"[{t.id}] generated {len(outs)} file(s) -> {t.output_dir}")
+            ran_gen = True
+        if not ran_gen:
+            typer.echo("No generation tasks matched; nothing was run.")
+    else:
+        typer.echo("No generation tasks in config.")
+    # Then run analyses
+    os.makedirs(cfg.project["output_dir"], exist_ok=True)
+    ds_idx = _datasets_index(cfg)
+    ran = False
+    for a in cfg.analyses:
+        if analysis and a.id != analysis:
+            continue
+        run_analysis(a, ds_idx, cfg.project["output_dir"])
+        ran = True
+    if not ran:
+        typer.echo("No analyses matched; nothing was run.")
+
+
 @app.command("new-dataset")
 def new_dataset(
     method: str = typer.Option(..., "--method", help="mean_sd | median_iqr | dataset"),

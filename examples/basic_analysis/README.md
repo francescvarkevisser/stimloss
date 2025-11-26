@@ -3,7 +3,8 @@
 Run a minimal Stimloss workflow against the bundled demo dataset to compare supply strategies and generate plots/tables.
 
 ## What this example does
-- Loads `data/combined_df_20250316_1835.parquet` defined in `demo_config.yaml`.
+- Generates `combined_df_generated.parquet` from `Literature_overview`.
+- Loads `data/combined_df_generated.parquet`.
 - Runs the `strategies` analysis (`fixed`, `stepped`, `global`) with modest sampling counts to keep runtime short.
 - Writes figures and summary tables to `examples/basic_analysis/output`.
 
@@ -11,7 +12,7 @@ Run a minimal Stimloss workflow against the bundled demo dataset to compare supp
 From the project root:
 
 ```bash
-stimloss run -c examples/basic_analysis/demo_config.yaml
+stimloss run-and-generate -c examples/basic_analysis/demo_config.yaml
 ```
 
 If you need a specific Python executable, prefix the command with it (e.g., `python -m stimloss …`).

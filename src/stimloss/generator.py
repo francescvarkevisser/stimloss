@@ -12,6 +12,27 @@ import yaml
 from scipy import stats
 from .config import GenerationTask
 
+def _infer_sd(mean: Optional[float], sd: Optional[float], lo: Optional[float], hi: Optional[float]) -> float:
+    """
+    Choose a usable stddev:
+      1) use provided sd if valid/positive
+      2) else approximate from range (lo/hi) as range/6 (~+/-3 sigma)
+      3) else fall back to 10% of |mean| (or tiny epsilon)
+    """
+    if sd is not None and pd.notna(sd) and sd > 0:
+        return sd
+    if lo is not None and hi is not None and pd.notna(lo) and pd.notna(hi):
+        approx = abs(hi - lo) / 6.0
+        if approx > 0:
+            return approx
+    base = abs(mean) if mean is not None and pd.notna(mean) else 0.0
+    return max(base * 0.1, 1e-12)
+
+
+def _bound_or(value: Optional[float], default: float) -> float:
+    """Return value if it is a finite number, else default."""
+    return value if value is not None and pd.notna(value) else default
+
 
 def _sample_truncated_normal(mean: float, sd: float, low: float, high: float, step: Optional[float], size: int) -> np.ndarray:
     """Sample from a truncated normal; optionally snap to step size."""
@@ -43,6 +64,7 @@ class SynthConfig:
     target: str
     study: Optional[str]
     dataset: Optional[str]
+    source: Optional[str] = None
     n_samples: int = 10000
 
     # mean/sd fields
@@ -79,14 +101,24 @@ def _synthesize_one(cfg: SynthConfig) -> pd.DataFrame:
         Z_vals = _sample_from_kde(raw["Z"], cfg.n_samples)
     elif cfg.method == "median_iqr":
         I_mean = cfg.I_median
-        I_sd = _estimate_sd_from_iqr(cfg.I_iqr)
+        I_sd = _infer_sd(I_mean, _estimate_sd_from_iqr(cfg.I_iqr), cfg.I_min, cfg.I_max)
         Z_mean = cfg.Z_median
-        Z_sd = _estimate_sd_from_iqr(cfg.Z_iqr)
-        I_vals = _sample_truncated_normal(I_mean, I_sd, cfg.I_min or 0, cfg.I_max or np.inf, cfg.I_step, cfg.n_samples)
-        Z_vals = _sample_truncated_normal(Z_mean, Z_sd, cfg.Z_min or 0, cfg.Z_max or np.inf, cfg.Z_step, cfg.n_samples)
+        Z_sd = _infer_sd(Z_mean, _estimate_sd_from_iqr(cfg.Z_iqr), cfg.Z_min, cfg.Z_max)
+        I_low = _bound_or(cfg.I_min, 0.0)
+        I_high = _bound_or(cfg.I_max, np.inf)
+        Z_low = _bound_or(cfg.Z_min, 0.0)
+        Z_high = _bound_or(cfg.Z_max, np.inf)
+        I_vals = _sample_truncated_normal(I_mean, I_sd, I_low, I_high, cfg.I_step, cfg.n_samples)
+        Z_vals = _sample_truncated_normal(Z_mean, Z_sd, Z_low, Z_high, cfg.Z_step, cfg.n_samples)
     elif cfg.method == "mean_sd":
-        I_vals = _sample_truncated_normal(cfg.I_mean, cfg.I_sd, cfg.I_min or 0, cfg.I_max or np.inf, cfg.I_step, cfg.n_samples)
-        Z_vals = _sample_truncated_normal(cfg.Z_mean, cfg.Z_sd, cfg.Z_min or 0, cfg.Z_max or np.inf, cfg.Z_step, cfg.n_samples)
+        I_sd = _infer_sd(cfg.I_mean, cfg.I_sd, cfg.I_min, cfg.I_max)
+        Z_sd = _infer_sd(cfg.Z_mean, cfg.Z_sd, cfg.Z_min, cfg.Z_max)
+        I_low = _bound_or(cfg.I_min, 0.0)
+        I_high = _bound_or(cfg.I_max, np.inf)
+        Z_low = _bound_or(cfg.Z_min, 0.0)
+        Z_high = _bound_or(cfg.Z_max, np.inf)
+        I_vals = _sample_truncated_normal(cfg.I_mean, I_sd, I_low, I_high, cfg.I_step, cfg.n_samples)
+        Z_vals = _sample_truncated_normal(cfg.Z_mean, Z_sd, Z_low, Z_high, cfg.Z_step, cfg.n_samples)
     else:
         raise ValueError(f"Unknown method: {cfg.method}")
 
@@ -99,12 +131,12 @@ def _synthesize_one(cfg: SynthConfig) -> pd.DataFrame:
     })
     # drop any rows with missing values
     out = out.dropna(subset=["I", "Z"])
-    # assign a synthetic source id (per row config)
-    out["source"] = np.arange(len(out))
+    # assign a source id per synthesized dataset (not per row)
+    out["source"] = cfg.source or "source"
     return out
 
 
-def generate_from_table(path: str, *, sheet: Optional[str] = None, n_samples: int = 10000, output_dir: str = "data/bundles") -> str:
+def generate_from_table(path: str, *, sheet: Optional[str] = None, n_samples: int = 10000, output_dir: str = "data/bundles", output_path: Optional[str] = None) -> str:
     """
     Generate a combined_df from a table (CSV or Excel) describing datasets.
     Expected columns include:
@@ -119,13 +151,52 @@ def generate_from_table(path: str, *, sheet: Optional[str] = None, n_samples: in
     else:
         df_src = pd.read_csv(path)
 
+    # Normalize column names from legacy sheets (e.g., Imean/ISD -> I_mean/I_sd)
+    rename_map = {
+        "imean": "I_mean",
+        "isd": "I_sd",
+        "imin": "I_min",
+        "imax": "I_max",
+        "imedian": "I_median",
+        "iiqr": "I_iqr",
+        "istep": "I_step",
+        "zmean": "Z_mean",
+        "zsd": "Z_sd",
+        "zmin": "Z_min",
+        "zmax": "Z_max",
+        "zmedian": "Z_median",
+        "ziqr": "Z_iqr",
+        "zstep": "Z_step",
+        "target": "Target",
+        "study": "Study",
+        "dataset": "Dataset",
+    }
+    df_src = df_src.rename(columns={c: rename_map.get(str(c).replace(" ", "").lower(), c) for c in df_src.columns})
+
     rows = []
-    for _, r in df_src.iterrows():
+    for idx, r in df_src.iterrows():
+        method_raw = str(r.get("method", "")).strip()
+        method = method_raw
+        if not method:
+            # Infer a sensible default if the sheet omits a method column.
+            has_mean_sd = pd.notna(r.get("I_mean")) or pd.notna(r.get("Z_mean")) or pd.notna(r.get("I_sd")) or pd.notna(r.get("Z_sd"))
+            has_median_iqr = pd.notna(r.get("I_median")) or pd.notna(r.get("Z_median")) or pd.notna(r.get("I_iqr")) or pd.notna(r.get("Z_iqr"))
+            if has_mean_sd:
+                method = "mean_sd"
+            elif has_median_iqr:
+                method = "median_iqr"
+            else:
+                method = ""
+        # derive a stable source id per dataset row (unique by row index)
+        source_id = r.get("source") or r.get("Source") or r.get("dataset") or r.get("Dataset") or r.get("study") or r.get("Study") or r.get("Target")
+        source_id = str(source_id) if source_id is not None else "source"
+        source_id = f"{source_id}_{idx}"
         cfg = SynthConfig(
-            method=str(r.get("method", "")).strip(),
+            method=method,
             target=r.get("target") or r.get("Target"),
             study=r.get("study") or r.get("Study"),
             dataset=r.get("dataset") or r.get("Dataset"),
+            source=source_id,
             n_samples=int(r.get("n_samples", n_samples)),
             I_mean=r.get("I_mean"), I_sd=r.get("I_sd"), I_min=r.get("I_min"), I_max=r.get("I_max"), I_step=r.get("I_step"),
             Z_mean=r.get("Z_mean"), Z_sd=r.get("Z_sd"), Z_min=r.get("Z_min"), Z_max=r.get("Z_max"), Z_step=r.get("Z_step"),
@@ -136,9 +207,17 @@ def generate_from_table(path: str, *, sheet: Optional[str] = None, n_samples: in
         rows.append(_synthesize_one(cfg))
 
     combined = pd.concat(rows, ignore_index=True)
+    # Derive load voltage/power if missing (needed by strategies analysis)
+    if "Vload" not in combined.columns:
+        combined["Vload"] = combined["I"] * combined["Z"]
+    if "Pload" not in combined.columns:
+        combined["Pload"] = combined["I"] * combined["Vload"]
     os.makedirs(output_dir, exist_ok=True)
-    ts = time.strftime("%Y%m%d_%H%M%S")
-    out_path = os.path.join(output_dir, f"combined_df_{ts}.parquet")
+    if output_path:
+        out_path = output_path
+    else:
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        out_path = os.path.join(output_dir, f"combined_df_{ts}.parquet")
     combined.to_parquet(out_path, index=False)
     return out_path
 
@@ -179,7 +258,7 @@ def run_generation_task(task: GenerationTask) -> List[str]:
     elif task.type == "from_literature":
         if not task.path:
             raise ValueError(f"[{task.id}] path is required for type=from_literature")
-        out = generate_from_table(task.path, sheet=task.sheet, n_samples=task.n_samples, output_dir=task.output_dir)
+        out = generate_from_table(task.path, sheet=task.sheet, n_samples=task.n_samples, output_dir=task.output_dir, output_path=task.output_path)
         outs = [out]
     else:
         raise ValueError(f"[{task.id}] unknown generation task type: {task.type}")
